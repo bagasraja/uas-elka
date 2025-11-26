@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOT Dashboard - Arus DC</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        .data-box { border: 2px solid #007bff; padding: 15px; margin: 10px auto; width: 300px; border-radius: 8px; }
+        .nilai { font-size: 3em; font-weight: bold; color: #007bff; }
+        #realtimeChart { max-width: 600px; margin: 20px auto; }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Arus DC Simulasi</h1>
+    <p>Diperbarui terakhir: <span id="lastUpdated">Menunggu data...</span></p>
+
+    <div class="data-box">
+        <h2>Meter Arus DC (A)</h2>
+        <div class="nilai" id="currentValue">--</div>
+    </div>
+
+    <div id="realtimeChart">
+        <canvas id="currentChart"></canvas>
+    </div>
+
+    <script>
+        // GANTI DENGAN URL RAW GIST ANDA!
+        const GIST_RAW_URL = 'https://gist.githubusercontent.com/ganti_dengan_username_anda/ganti_dengan_gist_id_anda/raw/iot_data.json'; 
+        
+        const MAX_DATA_POINTS = 10;
+        let chartData = {
+            labels: [],
+            datasets: [{
+                label: 'Arus DC (A)',
+                data: [],
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        };
+
+        // Inisialisasi Chart
+        const ctx = document.getElementById('currentChart').getContext('2d');
+        const currentChart = new Chart(ctx, {
+            type: 'line',
+            data: chartData,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Arus (A)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // --- Fungsi untuk Mengambil dan Memperbarui Data ---
+        async function fetchAndUpdateData() {
+            try {
+                const response = await fetch(GIST_RAW_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                // 1. Update Nilai Meter
+                document.getElementById('currentValue').textContent = data.current_dc.toFixed(2);
+                document.getElementById('lastUpdated').textContent = data.timestamp;
+
+                // 2. Update Grafik (mempertahankan jumlah maksimum data)
+                if (chartData.labels.length >= MAX_DATA_POINTS) {
+                    chartData.labels.shift(); // Hapus data tertua
+                    chartData.datasets[0].data.shift();
+                }
+                
+                chartData.labels.push(data.timestamp.split(' ')[1]); // Ambil hanya waktu
+                chartData.datasets[0].data.push(data.current_dc);
+                
+                currentChart.update(); // Perbarui tampilan chart
+                
+            } catch (error) {
+                console.error("Gagal mengambil atau memperbarui data:", error);
+                document.getElementById('lastUpdated').textContent = "ERROR: Gagal terhubung ke data.";
+            }
+        }
+
+        // Jalankan fungsi update setiap 5 detik
+        setInterval(fetchAndUpdateData, 5000); 
+        
+        // Panggil pertama kali saat halaman dimuat
+        fetchAndUpdateData(); 
+    </script>
+</body>
+</html>
