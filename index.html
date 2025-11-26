@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IOT Dashboard - Simulasi Arus DC Real-Time</title>
+    <title>IOT Dashboard - Monitor Arus DC Real-Time</title>
     <!-- Library Chart.js untuk Grafik -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
     
@@ -59,18 +59,30 @@
             color: white;
         }
         .status-running { background-color: #28a745; }
+        .status-error { background-color: #dc3545; }
         .status-info { color: #6c757d; font-size: 0.9em; }
+        
+        /* Tambahan styling untuk pesan error */
+        #errorMsg {
+            color: red;
+            display: none;
+            margin-top: 10px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Dashboard Arus DC (Simulasi Otomatis)</h1>
-        <p class="status-info">Data dihasilkan secara acak di browser dan diperbarui setiap 2 detik.</p>
-        <p>Status: <span class="status-badge status-running">RUNNING</span></p>
+        <h1>Dashboard Arus DC (Real-Time Fetch)</h1>
+        <p class="status-info">Data diambil dari file <code>data.json</code> setiap 2 detik.</p>
+        
+        <p>Status: <span id="statusBadge" class="status-badge status-running">CONNECTED</span></p>
         <p>Diperbarui terakhir: <span id="lastUpdated">Menunggu data...</span></p>
+        <p id="errorMsg">Gagal mengambil data!</p>
 
         <div class="data-box">
             <h2>Meter Arus DC (Ampere)</h2>
+            <!-- ID 'currentValue' akan diupdate oleh JS -->
             <div class="nilai" id="currentValue">--</div>
             <p>Target Range: 4.5A - 5.5A</p>
         </div>
@@ -82,7 +94,10 @@
     </div>
 
     <script>
+        // --- KONFIGURASI CHART ---
         const MAX_DATA_POINTS = 10;
+        const DATA_URL = 'data.json'; // Lokasi file JSON
+
         let chartData = {
             labels: [],
             datasets: [{
@@ -105,70 +120,83 @@
                 maintainAspectRatio: true,
                 scales: {
                     y: {
-                        // Menyesuaikan skala Y untuk rentang simulasi 4.0 - 6.0
                         min: 4.0, 
                         max: 6.0,
-                        title: {
-                            display: true,
-                            text: 'Arus (A)'
-                        }
+                        title: { display: true, text: 'Arus (A)' }
                     }
                 },
                 plugins: {
-                    legend: {
-                        display: true
-                    },
-                    title: {
-                        display: false
-                    }
+                    legend: { display: true },
+                    title: { display: false }
                 }
             }
         });
 
-        // --- Fungsi untuk Membuat dan Menampilkan Data Acak ---
-        let lastValue = 5.0; // Nilai awal untuk membuat pergerakan data terlihat lebih mulus
+        // --- FUNGSI FETCH DATA (PENGGANTI SIMULASI) ---
+        
+        async function fetchData() {
+            try {
+                // 1. FETCH DATA DARI SERVER/FILE JSON
+                // Menggunakan timestamp (?t=...) untuk mencegah browser menyimpan cache (Cache Busting)
+                const response = await fetch(`${DATA_URL}?t=${new Date().getTime()}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
 
-        function generateAndDisplayData() {
-            // 1. GENERASI DATA ACAK (Simulasi Arus DC)
-            
-            // Membuat pergerakan nilai yang smooth (berkaitan dengan nilai sebelumnya)
-            // Nilai acak antara -0.2 dan 0.2
-            const fluctuation = (Math.random() * 0.4) - 0.2; 
-            let newValue = lastValue + fluctuation;
+                // 2. PARSING JSON
+                const jsonData = await response.json();
+                
+                // Asumsi di JSON kuncinya adalah "arus_dc"
+                // Pastikan nilai diubah menjadi float jika berupa string
+                const current_dc = parseFloat(jsonData.arus_dc); 
 
-            // Memastikan nilai tetap dalam rentang 4.5A hingga 5.5A
-            if (newValue > 5.5) newValue = 5.5;
-            if (newValue < 4.5) newValue = 4.5;
-            
-            const current_dc = parseFloat(newValue.toFixed(2));
-            lastValue = current_dc; // Simpan nilai terakhir untuk iterasi berikutnya
+                // 3. UPDATE TAMPILAN (UI)
+                updateUI(current_dc);
+                
+                // Update status koneksi aman
+                document.getElementById('statusBadge').className = 'status-badge status-running';
+                document.getElementById('statusBadge').textContent = 'CONNECTED';
+                document.getElementById('errorMsg').style.display = 'none';
 
+            } catch (error) {
+                console.error("Gagal mengambil data:", error);
+                
+                // Update status koneksi error
+                document.getElementById('statusBadge').className = 'status-badge status-error';
+                document.getElementById('statusBadge').textContent = 'DISCONNECTED';
+                document.getElementById('errorMsg').textContent = `Error: ${error.message}`;
+                document.getElementById('errorMsg').style.display = 'block';
+            }
+        }
+
+        function updateUI(nilaiArus) {
             const timestamp = new Date();
             const timeString = timestamp.toLocaleTimeString('id-ID');
 
-            // 2. UPDATE NILAI METER
-            document.getElementById('currentValue').textContent = current_dc.toFixed(2);
+            // Update Nilai Angka Besar
+            // toFixed(2) membatasi 2 angka belakang koma
+            document.getElementById('currentValue').textContent = nilaiArus.toFixed(2);
             document.getElementById('lastUpdated').textContent = timestamp.toLocaleString('id-ID');
 
-            // 3. UPDATE GRAFIK
-            
-            // Menjaga jumlah maksimum data
+            // Update Grafik (Chart.js)
             if (chartData.labels.length >= MAX_DATA_POINTS) {
                 chartData.labels.shift(); 
                 chartData.datasets[0].data.shift();
             }
             
             chartData.labels.push(timeString); 
-            chartData.datasets[0].data.push(current_dc);
+            chartData.datasets[0].data.push(nilaiArus);
             
-            currentChart.update('none'); // Perbarui tampilan chart tanpa animasi (lebih IOT-friendly)
+            // Update chart tanpa animasi berlebih
+            currentChart.update('none'); 
         }
 
-        // Jalankan fungsi update setiap 2 detik (2000 ms)
-        setInterval(generateAndDisplayData, 2000); 
+        // Jalankan fungsi fetch setiap 2 detik (2000 ms)
+        setInterval(fetchData, 2000); 
         
         // Panggil pertama kali saat halaman dimuat
-        generateAndDisplayData(); 
+        fetchData(); 
     </script>
 </body>
 </html>
