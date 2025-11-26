@@ -1,5 +1,6 @@
 {
-    "timestamp": "2025-11-26 18:00:00",
-    "current_dc": 5.00,
-    "status": "INITIAL DATA"
+    "timestamp": "2025-11-26 11:04:29",
+    "current_dc": 4.91,
+    "status": "RUNNING",
+    "next_start_value": 4.91
 }
