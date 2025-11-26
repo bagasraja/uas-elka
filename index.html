@@ -3,40 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IOT Dashboard - Arus DC</title>
+    <title>IOT Dashboard - Simulasi Arus DC Real-Time</title>
+    <!-- Library Chart.js untuk Grafik -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-        .data-box { border: 2px solid #007bff; padding: 15px; margin: 10px auto; width: 300px; border-radius: 8px; }
-        .nilai { font-size: 3em; font-weight: bold; color: #007bff; }
-        #realtimeChart { max-width: 600px; margin: 20px auto; }
+        /* Menggunakan Tailwind-like classes untuk estetika dasar */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            text-align: center; 
+            padding: 20px; 
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        .data-box { 
+            border: 3px solid #007bff; 
+            padding: 20px; 
+            margin: 20px auto; 
+            width: 300px; 
+            border-radius: 10px; 
+            background-color: #e6f0ff;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+        }
+        .nilai { 
+            font-size: 4em; 
+            font-weight: 700; 
+            color: #0056b3; 
+            margin-top: 5px;
+        }
+        #chartArea { 
+            max-width: 800px; 
+            margin: 40px auto; 
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            color: white;
+        }
+        .status-running { background-color: #28a745; }
+        .status-info { color: #6c757d; font-size: 0.9em; }
     </style>
 </head>
 <body>
-    <h1>Dashboard Arus DC Simulasi</h1>
-    <p>Diperbarui terakhir: <span id="lastUpdated">Menunggu data...</span></p>
+    <div class="container">
+        <h1>Dashboard Arus DC (Simulasi Otomatis)</h1>
+        <p class="status-info">Data dihasilkan secara acak di browser dan diperbarui setiap 2 detik.</p>
+        <p>Status: <span class="status-badge status-running">RUNNING</span></p>
+        <p>Diperbarui terakhir: <span id="lastUpdated">Menunggu data...</span></p>
 
-    <div class="data-box">
-        <h2>Meter Arus DC (A)</h2>
-        <div class="nilai" id="currentValue">--</div>
-    </div>
+        <div class="data-box">
+            <h2>Meter Arus DC (Ampere)</h2>
+            <div class="nilai" id="currentValue">--</div>
+            <p>Target Range: 4.5A - 5.5A</p>
+        </div>
 
-    <div id="realtimeChart">
-        <canvas id="currentChart"></canvas>
+        <div id="chartArea">
+            <h2>Tren 10 Data Terakhir</h2>
+            <canvas id="currentChart"></canvas>
+        </div>
     </div>
 
     <script>
-        // GANTI DENGAN URL RAW GIST ANDA!
-        const GIST_RAW_URL = 'https://gist.githubusercontent.com/bagasraja/89f4862d982a36e096e2ea6910a5c7f8/raw/9683f620e7d46940652401d6e2004ae67e1eeea6/gistfile1.txt'; 
-        
         const MAX_DATA_POINTS = 10;
         let chartData = {
             labels: [],
             datasets: [{
                 label: 'Arus DC (A)',
                 data: [],
-                borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                fill: true,
+                tension: 0.2
             }]
         };
 
@@ -46,53 +101,74 @@
             type: 'line',
             data: chartData,
             options: {
+                responsive: true,
+                maintainAspectRatio: true,
                 scales: {
                     y: {
-                        beginAtZero: false,
+                        // Menyesuaikan skala Y untuk rentang simulasi 4.0 - 6.0
+                        min: 4.0, 
+                        max: 6.0,
                         title: {
                             display: true,
                             text: 'Arus (A)'
                         }
                     }
+                },
+                plugins: {
+                    legend: {
+                        display: true
+                    },
+                    title: {
+                        display: false
+                    }
                 }
             }
         });
 
-        // --- Fungsi untuk Mengambil dan Memperbarui Data ---
-        async function fetchAndUpdateData() {
-            try {
-                const response = await fetch(GIST_RAW_URL);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
+        // --- Fungsi untuk Membuat dan Menampilkan Data Acak ---
+        let lastValue = 5.0; // Nilai awal untuk membuat pergerakan data terlihat lebih mulus
 
-                // 1. Update Nilai Meter
-                document.getElementById('currentValue').textContent = data.current_dc.toFixed(2);
-                document.getElementById('lastUpdated').textContent = data.timestamp;
+        function generateAndDisplayData() {
+            // 1. GENERASI DATA ACAK (Simulasi Arus DC)
+            
+            // Membuat pergerakan nilai yang smooth (berkaitan dengan nilai sebelumnya)
+            // Nilai acak antara -0.2 dan 0.2
+            const fluctuation = (Math.random() * 0.4) - 0.2; 
+            let newValue = lastValue + fluctuation;
 
-                // 2. Update Grafik (mempertahankan jumlah maksimum data)
-                if (chartData.labels.length >= MAX_DATA_POINTS) {
-                    chartData.labels.shift(); // Hapus data tertua
-                    chartData.datasets[0].data.shift();
-                }
-                
-                chartData.labels.push(data.timestamp.split(' ')[1]); // Ambil hanya waktu
-                chartData.datasets[0].data.push(data.current_dc);
-                
-                currentChart.update(); // Perbarui tampilan chart
-                
-            } catch (error) {
-                console.error("Gagal mengambil atau memperbarui data:", error);
-                document.getElementById('lastUpdated').textContent = "ERROR: Gagal terhubung ke data.";
+            // Memastikan nilai tetap dalam rentang 4.5A hingga 5.5A
+            if (newValue > 5.5) newValue = 5.5;
+            if (newValue < 4.5) newValue = 4.5;
+            
+            const current_dc = parseFloat(newValue.toFixed(2));
+            lastValue = current_dc; // Simpan nilai terakhir untuk iterasi berikutnya
+
+            const timestamp = new Date();
+            const timeString = timestamp.toLocaleTimeString('id-ID');
+
+            // 2. UPDATE NILAI METER
+            document.getElementById('currentValue').textContent = current_dc.toFixed(2);
+            document.getElementById('lastUpdated').textContent = timestamp.toLocaleString('id-ID');
+
+            // 3. UPDATE GRAFIK
+            
+            // Menjaga jumlah maksimum data
+            if (chartData.labels.length >= MAX_DATA_POINTS) {
+                chartData.labels.shift(); 
+                chartData.datasets[0].data.shift();
             }
+            
+            chartData.labels.push(timeString); 
+            chartData.datasets[0].data.push(current_dc);
+            
+            currentChart.update('none'); // Perbarui tampilan chart tanpa animasi (lebih IOT-friendly)
         }
 
-        // Jalankan fungsi update setiap 5 detik
-        setInterval(fetchAndUpdateData, 5000); 
+        // Jalankan fungsi update setiap 2 detik (2000 ms)
+        setInterval(generateAndDisplayData, 2000); 
         
         // Panggil pertama kali saat halaman dimuat
-        fetchAndUpdateData(); 
+        generateAndDisplayData(); 
     </script>
 </body>
 </html>
