@@ -1,6 +1,1 @@
-{
-    "timestamp": "2025-11-26 11:04:29",
-    "current_dc": 4.91,
-    "status": "RUNNING",
-    "next_start_value": 4.91
-}
+{"arus_dc": 4.93, "status": "connected", "timestamp": "2025-11-26 11:27:11"}
